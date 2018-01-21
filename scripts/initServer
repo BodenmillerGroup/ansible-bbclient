@@ -1,0 +1,5 @@
+#!/bin/bash
+
+uname=$1
+curuser=$USER
+sudo mount -t cifs //130.60.72.200/Bodenmiller /mnt/imls-bod -o uid=$curuser,gid=BBlab,domain=IMB,username=$uname,file_mode=0775,dir_mode=0775

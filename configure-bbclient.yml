@@ -1,0 +1,106 @@
+- hosts: bbclients
+  become: true
+  tasks:
+    # setup 2nd network interface
+    - copy:
+       src: configs/51-ens4-init.cfg
+       dest: /etc/network/interfaces.d/
+       owner: root
+       group: root
+    - service:
+       name: networking
+       state: restarted 
+    # allow password based ssh
+    - name: allow ssh password
+      lineinfile:
+          dest: /etc/ssh/sshd_config
+          backrefs: yes
+          regexp: '^PasswordAuthentication no'
+          line: 'PasswordAuthentication yes'
+          backup: yes
+      tags: configuration
+    # install nfs
+    - name: install nfs client
+      action: apt pkg=nfs-common
+      state: present
+
+    # backup the ubuntu key for ssh login 
+    - name: bakcup ubuntu keys
+      shell: sudo cp -n /home/ubuntu/.ssh/authorized_keys /etc/ssh/ubuntu_authorized_keys || true 
+    - name: allow new key
+      lineinfile:
+          dest: /etc/ssh/sshd_config
+          backrefs: yes
+          regexp: '^AuthorizedKeysFile .*$'
+          line: 'AuthorizedKeysFile %h/.ssh/authorized_keys /etc/ssh/%u_authorized_keys'
+          backup: yes
+
+    # mount nfs
+    - name: mount bbvolume
+      mount:
+        state: mounted
+        fstype: nfs
+        path: /mnt/bbvolume
+        src: 10.65.12.13:/mnt/bbvolume
+
+    # reinstantiate all the users
+    - name: install ccrypt
+      action: apt pkg=ccrypt
+      state: present
+
+    - name: copy user transfer script
+      copy:
+       src: scripts/unpack_users.sh
+       dest: /root/
+       mode: 0777
+       # TODO: this script maybe can also be done in ansible?
+    - name: execute user transfer script
+      become: true
+      shell: sudo sh /root/unpack_users.sh
+
+    # mount the serverhomes into the server
+    - name: mount the serverhomes
+      mount:
+        state: mounted
+        fstype: nfs
+        path: /home
+        src: 10.65.12.13:/mnt/bbvolume/server_homes
+
+    # add the initserver script to mount the imls storage server
+    - name: Creates directory
+      file:
+        path: /mnt/imls-bod
+        state: directory
+
+    - name: copy initserver script
+      copy:
+         src: scripts/initServer
+         dest: /usr/local/bin/initServer
+         mode: 0777
+
+     # Enable cifs mounting
+    - name: install cifs
+      action: apt pkg=cifs-utils
+      state: present
+         
+    # Enable swapfile
+    - name: install swapfile
+      action: apt pkg=swapspace
+      state: present
+
+    # restart ssh service   
+    - service:
+       name: sshd
+       state: restarted
+       
+    # various dependencies for R
+    - action: apt pkg=libxml2-dev
+      state: present
+    - action: apt pkg=build-essential
+      state: present
+    - action: apt pkg=libfftw3-3
+      state: present
+    - action: apt pkg=libcurl4-openssl-dev
+      state: present
+    - action: apt pkg=libssl-dev
+      state: present

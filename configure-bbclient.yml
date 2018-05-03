@@ -19,7 +19,12 @@
           line: 'PasswordAuthentication yes'
           backup: yes
       tags: configuration
-    # install nfs
+
+    - name: perform apt update
+      apt:
+        update_cache: yes
+        
+    # install nfs    
     - name: install nfs client
       action: apt pkg=nfs-common
       state: present
@@ -104,3 +109,4 @@
       state: present
     - action: apt pkg=libssl-dev
       state: present
+ 
